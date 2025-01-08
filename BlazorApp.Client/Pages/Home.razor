@@ -4,18 +4,21 @@
 <PageTitle>Broken</PageTitle>
 
 <DxGrid @ref="@_grid"
+        PageSize="12"
         Data="@_data"
         KeyFieldName="@(nameof(Item.Id))"
-        PageSize="20"
+        ValidationEnabled="false"
+        SizeMode="@SizeMode.Medium"
         EditMode="@GridEditMode.EditCell"
+        EditModelSaving="@Grid_EditModelSaving"
+        CustomizeElement="@Grid_CustomizeElement"
         ColumnResizeMode="@GridColumnResizeMode.NextColumn"
-        HighlightRowOnHover="@true"
-        EditModelSaving="@EditModelSaving"
-        ValidationEnabled="@false">
+        TextWrapEnabled="@false"
+        HighlightRowOnHover="@true">
     <ToolbarTemplate>
-        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
-            <DxToolbarItem Text="Save" Click="@SaveBatch" IconCssClass="grid-toolbar-save" Enabled="@BatchItemsEnabled" />
-            <DxToolbarItem Text="Cancel" Click="@CancelBatch" IconCssClass="grid-toolbar-cancel" Enabled="@BatchItemsEnabled" />
+        <DxToolbar ItemRenderStyleMode="@ToolbarRenderStyleMode.Plain">
+            <DxToolbarItem Text="Save" Click="@Save_Click" IconCssClass="grid-toolbar-save" Enabled="@BatchItemsEnabled" />
+            <DxToolbarItem Text="Cancel" Click="@Cancel_Click" IconCssClass="grid-toolbar-cancel" Enabled="@BatchItemsEnabled" />
         </DxToolbar>
     </ToolbarTemplate>
     <Columns>
@@ -32,7 +35,7 @@
     private IGrid _grid;
     private GridDevExtremeDataSource<Item> _data;
 
-    private readonly Dictionary<Item, Item> _unsavedChanges = new();
+    private readonly Dictionary<Item, DataChange> _unsavedChanges = new();
 
     private bool BatchItemsEnabled => _unsavedChanges.Count > 0 || _grid.IsEditing();
 
@@ -40,16 +43,43 @@
     {
         _data = ApiClient.GetItemDataSource();
     }
-
-    private void EditModelSaving(GridEditModelSavingEventArgs args)
+    void Cancel_Click() => ClearUnsavedChanges();
+    void Save_Click() => ClearUnsavedChanges();
+    void Grid_CustomizeElement(GridCustomizeElementEventArgs ea)
     {
-        var originalItem = (Item)args.DataItem;
-        var updatedItem = (Item)args.EditModel;
-
-        _unsavedChanges.TryAdd(originalItem, updatedItem);
+        if (ea.ElementType == GridElementType.DataCell)
+        {
+            var employee = (Item)_grid.GetDataItem(ea.VisibleIndex);
+            if (employee is null) return;
+            var column = (IGridDataColumn)ea.Column;
+            if (_unsavedChanges.TryGetValue(employee, out var changes))
+            {
+                if (changes.ChangedFields.Contains(column.FieldName))
+                    ea.CssClass = "grid-modified-cell";
+            }
+        }
     }
-
-    private void CancelBatch() => Console.WriteLine("Cancel");
-
-    private void SaveBatch() => Console.WriteLine("Save");
+    void Grid_EditModelSaving(GridEditModelSavingEventArgs e)
+    {
+        var editableEmployee = (Item)e.EditModel;
+        var employee = (Item)e.DataItem;
+        var changedFields = DataUtils.ApplyModifiedFields(editableEmployee, employee);
+        if (changedFields.Count > 0)
+        {
+            if (_unsavedChanges.TryGetValue(employee, out var changes))
+                changes.ChangedFields.UnionWith(changedFields);
+            else
+                _unsavedChanges.Add(employee, new(changedFields));
+        }
+    }
+    void ClearUnsavedChanges()
+    {
+        _unsavedChanges.Clear();
+        UpdateData();
+    }
+    void UpdateData()
+    {
+        _grid.Reload();
+    }
+    record DataChange(HashSet<string> ChangedFields);
 }
