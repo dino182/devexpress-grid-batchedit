@@ -1,7 +1,55 @@
 ﻿@page "/"
+@inject ApiClient ApiClient
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Broken</PageTitle>
 
-<h1>Hello, world!</h1>
+<DxGrid @ref="@_grid"
+        Data="@_data"
+        KeyFieldName="@(nameof(Item.Id))"
+        PageSize="20"
+        EditMode="@GridEditMode.EditCell"
+        ColumnResizeMode="@GridColumnResizeMode.NextColumn"
+        HighlightRowOnHover="@true"
+        EditModelSaving="@EditModelSaving"
+        ValidationEnabled="@false">
+    <ToolbarTemplate>
+        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+            <DxToolbarItem Text="Save" Click="@SaveBatch" IconCssClass="grid-toolbar-save" Enabled="@BatchItemsEnabled" />
+            <DxToolbarItem Text="Cancel" Click="@CancelBatch" IconCssClass="grid-toolbar-cancel" Enabled="@BatchItemsEnabled" />
+        </DxToolbar>
+    </ToolbarTemplate>
+    <Columns>
+        <DxGridDataColumn FieldName="@(nameof(Item.Text1))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Text2))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value1))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value2))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value3))" />
+    </Columns>
+</DxGrid>
 
-Welcome to your new app.
+@code
+{
+    private IGrid _grid;
+    private GridDevExtremeDataSource<Item> _data;
+
+    private readonly Dictionary<Item, Item> _unsavedChanges = new();
+
+    private bool BatchItemsEnabled => _unsavedChanges.Count > 0 || _grid.IsEditing();
+
+    protected override void OnInitialized()
+    {
+        _data = ApiClient.GetItemDataSource();
+    }
+
+    private void EditModelSaving(GridEditModelSavingEventArgs args)
+    {
+        var originalItem = (Item)args.DataItem;
+        var updatedItem = (Item)args.EditModel;
+
+        _unsavedChanges.TryAdd(originalItem, updatedItem);
+    }
+
+    private void CancelBatch() => Console.WriteLine("Cancel");
+
+    private void SaveBatch() => Console.WriteLine("Save");
+}

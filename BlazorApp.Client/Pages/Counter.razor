@@ -1,18 +1,59 @@
 ﻿@page "/counter"
 
-<PageTitle>Counter</PageTitle>
+<PageTitle>Working</PageTitle>
 
-<h1>Counter</h1>
+<DxGrid @ref="@_grid"
+        Data="@_data"
+        KeyFieldName="@(nameof(Item.Id))"
+        PageSize="20"
+        EditMode="@GridEditMode.EditCell"
+        ColumnResizeMode="@GridColumnResizeMode.NextColumn"
+        HighlightRowOnHover="@true"
+        EditModelSaving="@EditModelSaving"
+        ValidationEnabled="@false">
+    <ToolbarTemplate>
+        <DxToolbar ItemRenderStyleMode="ToolbarRenderStyleMode.Plain">
+            <DxToolbarItem Text="Save" Click="@SaveBatch" IconCssClass="grid-toolbar-save" Enabled="@BatchItemsEnabled" />
+            <DxToolbarItem Text="Cancel" Click="@CancelBatch" IconCssClass="grid-toolbar-cancel" Enabled="@BatchItemsEnabled" />
+        </DxToolbar>
+    </ToolbarTemplate>
+    <Columns>
+        <DxGridDataColumn FieldName="@(nameof(Item.Text1))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Text2))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value1))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value2))" />
+        <DxGridDataColumn FieldName="@(nameof(Item.Value3))" />
+    </Columns>
+</DxGrid>
 
-<p role="status">Current count: @currentCount</p>
+@code
+{
+    private IGrid _grid;
+    private List<Item> _data;
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+    private readonly Dictionary<Item, Item> _unsavedChanges = new();
 
-@code {
-    private int currentCount = 0;
+    private bool BatchItemsEnabled => _unsavedChanges.Count > 0 || _grid.IsEditing();
 
-    private void IncrementCount()
+    protected override void OnInitialized()
     {
-        currentCount++;
+        _data = new List<Item>
+        {
+            new Item {Id = 1, Text1 = "Item 1 Text1", Text2 = "Item 1 Text2", Value1 = 1, Value2 = 4, Value3 = 7},
+            new Item {Id = 2, Text1 = "Item 2 Text1", Text2 = "Item 2 Text2", Value1 = 2, Value2 = 5, Value3 = 8},
+            new Item {Id = 3, Text1 = "Item 3 Text1", Text2 = "Item 3 Text2", Value1 = 3, Value2 = 6, Value3 = 9},
+        };
     }
+
+    private void EditModelSaving(GridEditModelSavingEventArgs args)
+    {
+        var originalItem = (Item)args.DataItem;
+        var updatedItem = (Item)args.EditModel;
+
+        _unsavedChanges.TryAdd(originalItem, updatedItem);
+    }
+
+    private void CancelBatch() => Console.WriteLine("Cancel");
+
+    private void SaveBatch() => Console.WriteLine("Save");
 }
